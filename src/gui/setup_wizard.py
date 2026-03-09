@@ -18,7 +18,9 @@ from src.version import __version__, __app_name__, __author__, __website__, __ko
 # Resolved at import time
 def _get_icon_dir():
     if getattr(sys, 'frozen', False):
-        return os.path.dirname(sys.executable)
+        # PyInstaller puts data files in sys._MEIPASS (_internal dir)
+        meipass = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
+        return meipass
     return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 _ICON_DIR = _get_icon_dir()
@@ -210,6 +212,15 @@ class SetupWizard(QDialog):
         if not vigem_ok:
             btn_layout = QHBoxLayout()
             btn_layout.addStretch()
+
+            # Check for bundled ViGEm installer
+            vigem_msi = os.path.join(_get_icon_dir(), "ViGEmBus_Setup_x64.msi")
+            if os.path.exists(vigem_msi):
+                install_vigem_btn = QPushButton("Install ViGEm Driver")
+                install_vigem_btn.setObjectName("installBtn")
+                install_vigem_btn.clicked.connect(lambda: self._run_vigem_installer(vigem_msi))
+                btn_layout.addWidget(install_vigem_btn)
+
             open_btn = QPushButton("Open ViGEm Download Page")
             open_btn.setObjectName("installBtn")
             open_btn.clicked.connect(lambda: os.startfile("https://github.com/nefarius/ViGEmBus/releases"))
@@ -292,6 +303,18 @@ class SetupWizard(QDialog):
         layout.addWidget(done_note)
 
         return page
+
+    def _run_vigem_installer(self, msi_path: str):
+        """Run the bundled ViGEm Bus installer."""
+        try:
+            subprocess.Popen(['msiexec', '/i', msi_path], shell=False)
+            QMessageBox.information(
+                self, "ViGEm Installer",
+                "The ViGEm Bus Driver installer has been launched.\n"
+                "Follow its prompts, then restart this application."
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to launch installer: {e}")
 
     def _install_packages(self):
         """Attempt to install missing Python packages."""

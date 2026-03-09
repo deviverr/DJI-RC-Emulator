@@ -70,7 +70,7 @@ a = Analysis(
     datas=[
         ('icon.ico', '.'),
         ('DJI_RC_Icon_12x12.png', '.'),
-    ],
+    ] + ([('ViGEmBus_Setup_x64.msi', '.')] if os.path.exists('ViGEmBus_Setup_x64.msi') else []),
     hiddenimports=[
         'usb.backend.libusb1',
         'usb.backend.libusb0',

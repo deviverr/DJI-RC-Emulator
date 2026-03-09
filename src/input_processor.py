@@ -129,6 +129,9 @@ class InputProcessor:
         # Camera wheel thresholds for button mapping
         self.camera_button_threshold = 0.8
 
+        # Previous scroll value for edge-triggered detection
+        self._prev_scroll = 0.0
+
     def _apply_smoothing(self, axis: str, value: float) -> float:
         """Apply exponential moving average smoothing to an axis value."""
         alpha = self.smoothing.get(axis, 0.0)
@@ -195,13 +198,17 @@ class InputProcessor:
         result['camera_up'] = camera_norm > self.camera_button_threshold
         result['camera_down'] = camera_norm < -self.camera_button_threshold
 
-        # Scroll wheel (6th channel)
+        # Scroll wheel (6th channel) — edge-triggered detection
         raw_scroll = raw_data.get('scroll', RAW_CENTER)
         scroll_norm = normalize_raw(raw_scroll)
         normalized['scroll'] = scroll_norm
         result['scroll'] = scroll_norm
-        result['scroll_up'] = scroll_norm > self.camera_button_threshold
-        result['scroll_down'] = scroll_norm < -self.camera_button_threshold
+        prev_scroll = self._prev_scroll
+        self._prev_scroll = scroll_norm
+        result['scroll_up'] = (scroll_norm > self.camera_button_threshold
+                               and prev_scroll <= self.camera_button_threshold)
+        result['scroll_down'] = (scroll_norm < -self.camera_button_threshold
+                                 and prev_scroll >= -self.camera_button_threshold)
 
         # Trigger mapping (RC axis positive range → 0..255)
         result['left_trigger'] = self._compute_trigger(self.trigger_lt_axis, normalized)

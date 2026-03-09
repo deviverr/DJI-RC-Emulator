@@ -107,16 +107,23 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(750, 560)
         self._is_connected = False
 
-        # Set window icon
+        # Set window icon (PNG first — more reliable with Qt on Windows)
         import os, sys
         if getattr(sys, 'frozen', False):
-            app_dir = os.path.dirname(sys.executable)
+            app_dirs = [getattr(sys, '_MEIPASS', ''), os.path.dirname(sys.executable)]
         else:
-            app_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        for icon_name in ("icon.ico", "DJI_RC_Icon_12x12.png"):
-            icon_path = os.path.join(app_dir, icon_name)
-            if os.path.exists(icon_path):
-                self.setWindowIcon(QIcon(icon_path))
+            app_dirs = [os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))]
+        for app_dir in app_dirs:
+            found = False
+            for icon_name in ("DJI_RC_Icon_12x12.png", "icon.ico"):
+                icon_path = os.path.join(app_dir, icon_name)
+                if os.path.exists(icon_path):
+                    icon = QIcon(icon_path)
+                    if not icon.isNull():
+                        self.setWindowIcon(icon)
+                        found = True
+                        break
+            if found:
                 break
 
         self._setup_style()
@@ -654,6 +661,7 @@ class MainWindow(QMainWindow):
     def _show_about(self):
         msg = QMessageBox(self)
         msg.setWindowTitle(f"About {__app_name__}")
+        msg.setWindowIcon(self.windowIcon())
         msg.setIcon(QMessageBox.Icon.Information)
         msg.setText(
             f"<h2>{__app_name__}</h2>"

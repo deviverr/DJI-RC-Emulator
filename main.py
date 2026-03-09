@@ -56,21 +56,40 @@ class Application:
         self.rc.set_reconnect_interval(self.config.get('reconnect_interval_s', 2.0))
 
         self.window: MainWindow | None = None
+        self._icon_path: str | None = None
 
     def run(self) -> int:
+        # Set Windows App User Model ID so the taskbar shows the correct icon
+        try:
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+                'deviver.DJIRCEmulator.1'
+            )
+        except Exception:
+            pass
+
         app = QApplication(sys.argv)
         app.setApplicationName(__app_name__)
         app.setApplicationVersion(__version__)
 
-        # Set application icon
+        # Set application icon (prefer PNG — more reliable with Qt)
         if getattr(sys, 'frozen', False):
-            app_dir = os.path.dirname(sys.executable)
+            # PyInstaller puts data files in sys._MEIPASS (_internal dir)
+            app_dirs = [getattr(sys, '_MEIPASS', ''), os.path.dirname(sys.executable)]
         else:
-            app_dir = os.path.dirname(os.path.abspath(__file__))
-        for icon_name in ("icon.ico", "DJI_RC_Icon_12x12.png"):
-            icon_path = os.path.join(app_dir, icon_name)
-            if os.path.exists(icon_path):
-                app.setWindowIcon(QIcon(icon_path))
+            app_dirs = [os.path.dirname(os.path.abspath(__file__))]
+        for app_dir in app_dirs:
+            found = False
+            for icon_name in ("DJI_RC_Icon_12x12.png", "icon.ico"):
+                candidate = os.path.join(app_dir, icon_name)
+                if os.path.exists(candidate):
+                    icon = QIcon(candidate)
+                    if not icon.isNull():
+                        app.setWindowIcon(icon)
+                        self._icon_path = candidate
+                        found = True
+                        break
+            if found:
                 break
 
         # Show setup wizard on first run
@@ -105,7 +124,6 @@ class Application:
             )
         elif self.gamepad.initialize():
             self.window.set_gamepad_status("Xbox 360 Controller ready")
-            self.gamepad.start()
         else:
             self.window.set_gamepad_status("Failed to initialize")
 
@@ -118,7 +136,40 @@ class Application:
         app.aboutToQuit.connect(self._cleanup)
 
         self.window.show()
+
+        # Force-set Win32 HICON on the HWND (ensures taskbar + title bar icon)
+        self._force_win32_icon()
+
         return app.exec()
+
+    def _force_win32_icon(self):
+        """Use Win32 API to set the icon directly on the HWND — ensures taskbar icon."""
+        if sys.platform != 'win32' or not self._icon_path or not self.window:
+            return
+        # Win32 needs .ico for HICON; if we only have .png, skip (Qt handles it)
+        ico_path = None
+        if getattr(sys, 'frozen', False):
+            search_dirs = [getattr(sys, '_MEIPASS', ''), os.path.dirname(sys.executable)]
+        else:
+            search_dirs = [os.path.dirname(os.path.abspath(__file__))]
+        for d in search_dirs:
+            candidate = os.path.join(d, "icon.ico")
+            if os.path.exists(candidate):
+                ico_path = candidate
+                break
+        if not ico_path:
+            return
+        try:
+            import ctypes
+            hwnd = int(self.window.winId())
+            # LoadImageW: type=1 (IMAGE_ICON), flags=0x10 (LR_LOADFROMFILE)
+            hicon = ctypes.windll.user32.LoadImageW(None, ico_path, 1, 0, 0, 0x00000010)
+            if hicon:
+                WM_SETICON = 0x0080
+                ctypes.windll.user32.SendMessageW(hwnd, WM_SETICON, 1, hicon)  # ICON_BIG
+                ctypes.windll.user32.SendMessageW(hwnd, WM_SETICON, 0, hicon)  # ICON_SMALL
+        except Exception:
+            pass
 
     def _on_connect(self, device_info: dict | None):
         """Handle connect button click. device_info is None (auto) or a dict."""
@@ -139,13 +190,12 @@ class Application:
         self.rc.stop()
 
     def _on_stick_data(self, raw_data: dict):
-        """Called from RC thread with raw stick data. Process and forward."""
+        """Called from RC thread with raw stick data. Process and push to gamepad."""
         processed = self.input_proc.process(raw_data)
 
-        # Update virtual gamepad immediately
+        # Push directly to ViGEm — no background thread, no lock contention
         if self.gamepad.is_initialized:
-            self.gamepad.update_from_processed(processed)
-            self.gamepad.push_now()
+            self.gamepad.push(processed)
 
         # Update GUI (thread-safe via signal)
         if self.window:

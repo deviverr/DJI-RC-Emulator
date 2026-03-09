@@ -11,6 +11,13 @@ if exist ".venv\Scripts\activate.bat" (
     call .venv\Scripts\activate.bat
 )
 
+:: Install/update dependencies
+echo Installing dependencies...
+pip install -r requirements.txt --quiet
+if errorlevel 1 (
+    echo Warning: Some dependencies may not have installed correctly.
+)
+
 :: Check PyInstaller is installed
 pyinstaller --version >nul 2>&1
 if errorlevel 1 (

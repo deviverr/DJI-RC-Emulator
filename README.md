@@ -1,6 +1,6 @@
 # DJI RC Emulator
 
-**v1.0.0** — by [deviver](https://deviver.art)
+**v1.1** — by [deviver](https://deviver.art)
 
 Turns your **DJI RC** controller (RM330, RC-N1, RC-N2, RC231, etc.) into a virtual **Xbox 360 gamepad** for FPV simulators like **Liftoff**, **VelociDrone**, **DCL**, or any PC game.
 

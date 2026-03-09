@@ -4,7 +4,6 @@ Receives processed stick/button values and feeds them to the virtual controller.
 """
 import logging
 import time
-from threading import Thread, Event, Lock
 
 try:
     import vgamepad as vg
@@ -44,6 +43,8 @@ RC_BUTTON_SOURCES = [
     'photo',          # Photo/shutter button
     'video',          # Video record button
     'fn',             # Function button
+    'scroll_up',      # Scroll wheel up
+    'scroll_down',    # Scroll wheel down
 ]
 
 
@@ -61,36 +62,23 @@ class VirtualGamepad:
     """
     Manages a virtual Xbox 360 controller via ViGEm.
 
-    Updates stick axes and button states based on processed RC input.
-    Runs its own update thread for consistent gamepad reporting.
+    No background threads — call push() directly from the RC data callback.
+    This eliminates lock contention and ensures every RC packet reaches ViGEm.
     """
 
     def __init__(self):
         self._gamepad = None
-        self._thread: Thread | None = None
-        self._stop_event = Event()
-        self._lock = Lock()
-        self._update_interval = 0.002  # ~500 Hz gamepad update rate
         self._initialized = False
-
-        # Current state
-        self._left_x = 0
-        self._left_y = 0
-        self._right_x = 0
-        self._right_y = 0
-        self._left_trigger = 0
-        self._right_trigger = 0
-        self._pressed_buttons: set = set()
 
         # Button mapping: rc_source -> xbox_button_name
         self.button_map = {
-            'camera_up': 'Y',       # Restart race
-            'camera_down': 'B',     # Recover drone
-            'c1': 'LB',            # C1 → Left Bumper
-            'c2': 'RB',            # C2 → Right Bumper
-            'photo': 'A',          # Photo → A
-            'video': 'X',          # Video → X
-            'fn': 'Back',          # Fn → Back/Select
+            'camera_up': 'Y',
+            'camera_down': 'B',
+            'c1': 'LB',
+            'c2': 'RB',
+            'photo': 'A',
+            'video': 'X',
+            'fn': 'Back',
             'scroll_up': 'DPad Up',
             'scroll_down': 'DPad Down',
         }
@@ -106,11 +94,6 @@ class VirtualGamepad:
     def is_initialized(self) -> bool:
         return self._initialized
 
-    def set_update_rate(self, rate_hz: float):
-        """Set gamepad update rate in Hz."""
-        if rate_hz > 0:
-            self._update_interval = 1.0 / rate_hz
-
     def initialize(self) -> bool:
         """Create the virtual gamepad. Returns True on success."""
         if not VGAMEPAD_AVAILABLE:
@@ -125,6 +108,7 @@ class VirtualGamepad:
         try:
             self._gamepad = vg.VX360Gamepad()
             self._gamepad.reset()
+            self._gamepad.update()
             time.sleep(0.5)  # Allow Windows to recognize the device
             self._initialized = True
             logger.info("Virtual Xbox 360 gamepad created")
@@ -134,22 +118,8 @@ class VirtualGamepad:
                 self.on_error(f"Failed to create virtual gamepad: {e}")
             return False
 
-    def start(self):
-        """Start the gamepad update thread."""
-        if not self._initialized:
-            return
-        if self._thread and self._thread.is_alive():
-            return
-        self._stop_event.clear()
-        self._thread = Thread(target=self._update_loop, daemon=True, name="Gamepad")
-        self._thread.start()
-
     def stop(self):
-        """Stop the gamepad update thread and reset the controller."""
-        self._stop_event.set()
-        if self._thread:
-            self._thread.join(timeout=2.0)
-            self._thread = None
+        """Reset the controller on shutdown."""
         if self._gamepad:
             try:
                 self._gamepad.reset()
@@ -157,127 +127,57 @@ class VirtualGamepad:
             except Exception:
                 pass
 
-    def update_sticks(self, left_x: int, left_y: int, right_x: int, right_y: int):
-        """Update stick axis values (range: -32768 to 32767)."""
-        with self._lock:
-            self._left_x = left_x
-            self._left_y = left_y
-            self._right_x = right_x
-            self._right_y = right_y
-
-    def update_triggers(self, lt: int, rt: int):
-        """Update trigger values (range: 0-255)."""
-        with self._lock:
-            self._left_trigger = max(0, min(255, lt))
-            self._right_trigger = max(0, min(255, rt))
-
-    def update_buttons(self, rc_states: dict):
+    def push(self, processed: dict):
         """
-        Update button states based on RC input states.
+        Set axes + buttons from processed RC data and push to ViGEm immediately.
 
-        Args:
-            rc_states: Dict with RC button source names as keys, bool as values.
-                       e.g. {'camera_up': True, 'camera_down': False, ...}
+        Called directly from the RC data callback — no threading, no locks.
         """
-        with self._lock:
-            new_pressed = set()
-            for rc_source, xbox_name in self.button_map.items():
-                if rc_states.get(rc_source, False):
-                    btn = get_vigem_button(xbox_name)
-                    if btn is not None:
-                        new_pressed.add((xbox_name, btn))
-            self._pressed_buttons = new_pressed
-
-    def push_now(self):
-        """Immediately push current state to the virtual gamepad (call from any thread)."""
         if not self._initialized or not self._gamepad:
             return
         try:
-            with self._lock:
-                lx, ly = self._left_x, self._left_y
-                rx, ry = self._right_x, self._right_y
-                lt, rt = self._left_trigger, self._right_trigger
-                pressed = set(self._pressed_buttons)
+            # Axes
+            self._gamepad.left_joystick(
+                processed.get('gamepad_left_x', 0),
+                processed.get('gamepad_left_y', 0),
+            )
+            self._gamepad.right_joystick(
+                processed.get('gamepad_right_x', 0),
+                processed.get('gamepad_right_y', 0),
+            )
+            self._gamepad.left_trigger(
+                max(0, min(255, processed.get('left_trigger', 0)))
+            )
+            self._gamepad.right_trigger(
+                max(0, min(255, processed.get('right_trigger', 0)))
+            )
 
-            self._gamepad.left_joystick(lx, ly)
-            self._gamepad.right_joystick(rx, ry)
-            self._gamepad.left_trigger(byte_value=lt)
-            self._gamepad.right_trigger(byte_value=rt)
-
+            # Buttons: release all, then press active ones
             for xbox_name in XBOX_BUTTONS:
                 btn = get_vigem_button(xbox_name)
                 if btn is not None:
                     self._gamepad.release_button(btn)
-            for xbox_name, btn in pressed:
-                self._gamepad.press_button(btn)
 
-            self._gamepad.update()
-        except Exception:
-            pass
-
-    def update_from_processed(self, processed: dict):
-        """
-        Convenience: update everything from InputProcessor output.
-
-        Args:
-            processed: Dict from InputProcessor.process() with keys:
-                       gamepad_left_x, gamepad_left_y, gamepad_right_x, gamepad_right_y,
-                       camera_up, camera_down, etc.
-        """
-        self.update_sticks(
-            processed.get('gamepad_left_x', 0),
-            processed.get('gamepad_left_y', 0),
-            processed.get('gamepad_right_x', 0),
-            processed.get('gamepad_right_y', 0),
-        )
-        self.update_triggers(
-            processed.get('left_trigger', 0),
-            processed.get('right_trigger', 0),
-        )
-        self.update_buttons(processed)
-
-    def _update_loop(self):
-        """Continuously push current state to the virtual gamepad."""
-        while not self._stop_event.is_set():
-            try:
-                with self._lock:
-                    lx, ly = self._left_x, self._left_y
-                    rx, ry = self._right_x, self._right_y
-                    lt, rt = self._left_trigger, self._right_trigger
-                    pressed = set(self._pressed_buttons)
-
-                self._gamepad.left_joystick(lx, ly)
-                self._gamepad.right_joystick(rx, ry)
-                self._gamepad.left_trigger(byte_value=lt)
-                self._gamepad.right_trigger(byte_value=rt)
-
-                # Release all buttons first, then press active ones
-                for xbox_name in XBOX_BUTTONS:
+            for rc_source, xbox_name in self.button_map.items():
+                if processed.get(rc_source, False):
                     btn = get_vigem_button(xbox_name)
                     if btn is not None:
-                        self._gamepad.release_button(btn)
+                        self._gamepad.press_button(btn)
 
-                for xbox_name, btn in pressed:
-                    self._gamepad.press_button(btn)
-
-                self._gamepad.update()
-
-            except Exception as e:
-                logger.error("Gamepad update error: %s", e)
-
-            self._stop_event.wait(self._update_interval)
+            self._gamepad.update()
+        except Exception as e:
+            logger.error("Gamepad push error: %s", e)
 
     def load_from_config(self, config: dict):
-        """Load button mapping from config."""
+        """Load button mapping from config (merges with defaults so scroll etc. aren't lost)."""
         mapping = config.get('button_mapping', {})
         if mapping:
-            self.button_map = dict(mapping)
-        rate = config.get('gamepad_update_rate_hz', 125)
-        self.set_update_rate(rate)
+            merged = dict(self.button_map)
+            merged.update(mapping)
+            self.button_map = merged
 
     def save_to_config(self) -> dict:
         """Export button mapping to config dict."""
         return {
             'button_mapping': dict(self.button_map),
-            'gamepad_update_rate_hz': int(1.0 / self._update_interval) if self._update_interval > 0 else 125,
         }

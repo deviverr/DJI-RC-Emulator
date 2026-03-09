@@ -1,6 +1,6 @@
 """DJI RC Emulator version and metadata."""
 
-__version__ = "1.0.0"
+__version__ = "1.1"
 __app_name__ = "DJI RC Emulator"
 __author__ = "deviver"
 __website__ = "https://deviver.art"

@@ -7,7 +7,7 @@ import copy
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QGridLayout, QTabWidget,
+    QApplication, QDialog, QVBoxLayout, QHBoxLayout, QGridLayout, QTabWidget,
     QWidget, QLabel, QSlider, QComboBox, QCheckBox, QGroupBox,
     QPushButton, QSpinBox, QDoubleSpinBox, QFormLayout, QScrollArea,
     QLineEdit, QListWidget, QListWidgetItem, QMessageBox,
@@ -55,6 +55,11 @@ class SettingsDialog(QDialog):
         self._widgets = {}
         self._profiles = copy.deepcopy(config.get('profiles', {}))
         self._active_profile = config.get('active_profile', 'default')
+
+        # Inherit application icon
+        app_icon = QApplication.instance().windowIcon()
+        if not app_icon.isNull():
+            self.setWindowIcon(app_icon)
 
         self._setup_style()
         self._build_ui()
@@ -570,12 +575,6 @@ class SettingsDialog(QDialog):
         form.addRow("Serial poll interval:", poll_spin)
         self._widgets['poll_interval'] = poll_spin
 
-        gamepad_rate = QSpinBox()
-        gamepad_rate.setRange(30, 500)
-        gamepad_rate.setSuffix(" Hz")
-        form.addRow("Gamepad update rate:", gamepad_rate)
-        self._widgets['gamepad_rate'] = gamepad_rate
-
         cam_thresh = QDoubleSpinBox()
         cam_thresh.setRange(0.1, 1.0)
         cam_thresh.setSingleStep(0.05)
@@ -657,7 +656,6 @@ class SettingsDialog(QDialog):
 
         # Advanced
         self._widgets['poll_interval'].setValue(self._config.get('poll_interval_ms', 5))
-        self._widgets['gamepad_rate'].setValue(self._config.get('gamepad_update_rate_hz', 125))
         self._widgets['camera_threshold'].setValue(self._config.get('camera_button_threshold', 0.8))
 
         # Profiles list
@@ -712,7 +710,6 @@ class SettingsDialog(QDialog):
             'rc_model_override': rc_model,
             'reconnect_interval_s': self._widgets['reconnect_interval'].value(),
             'poll_interval_ms': self._widgets['poll_interval'].value(),
-            'gamepad_update_rate_hz': self._widgets['gamepad_rate'].value(),
             'camera_button_threshold': self._widgets['camera_threshold'].value(),
             'profiles': self._profiles,
             'active_profile': self._active_profile,
