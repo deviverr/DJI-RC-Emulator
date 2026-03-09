@@ -41,7 +41,7 @@ if errorlevel 1 (
 echo.
 echo ============================================
 echo   BUILD COMPLETE
-echo   Output: dist\DJI_RC_Emulator\DJI_RC_Emulator.exe
+echo   Output: dist\DJI RC Emulator\DJI RC Emulator.exe
 echo ============================================
 echo.
 pause

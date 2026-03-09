@@ -32,13 +32,18 @@ def find_libusb_dll():
 
 # ── Locate vgamepad DLLs ──────────────────────────────────────────────────────
 def find_vgamepad_dlls():
-    """Find ViGEmClient DLL from the vgamepad package."""
+    """Find ViGEmClient DLL matching current architecture from vgamepad package."""
+    import platform
+    arch = "x64" if platform.architecture()[0] == "64bit" else "x86"
     dlls = []
     try:
         import vgamepad as vg
         pkg_dir = Path(vg.__file__).parent
-        for candidate in pkg_dir.rglob('ViGEmClient*.dll'):
-            dlls.append(str(candidate))
+        candidate = pkg_dir / 'win' / 'vigem' / 'client' / arch / 'ViGEmClient.dll'
+        if candidate.exists():
+            # Preserve directory structure so vgamepad can find it at runtime
+            rel_dest = str(Path('vgamepad') / 'win' / 'vigem' / 'client' / arch)
+            dlls.append((str(candidate), rel_dest))
     except ImportError:
         pass
     return dlls
@@ -52,9 +57,9 @@ if libusb_dll:
     print(f"Found libusb DLL: {libusb_dll}")
     binaries.append((libusb_dll, '.'))
 
-for dll in find_vgamepad_dlls():
-    print(f"Found vgamepad DLL: {dll}")
-    binaries.append((dll, '.'))
+for dll_path, dll_dest in find_vgamepad_dlls():
+    print(f"Found vgamepad DLL: {dll_path} -> {dll_dest}")
+    binaries.append((dll_path, dll_dest))
 
 
 # ── Analysis ──────────────────────────────────────────────────────────────────
@@ -102,7 +107,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='DJI_RC_Emulator',
+    name='DJI RC Emulator',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -123,5 +128,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='DJI_RC_Emulator',
+    name='DJI RC Emulator',
 )

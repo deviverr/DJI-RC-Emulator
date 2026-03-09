@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QMessageBox, QSplitter, QProgressBar, QSizePolicy,
 )
 
+from src.version import __version__, __app_name__, __author__, __website__, __kofi__, __description__
 from src.gui.stick_widget import StickWidget
 from src.rc_connection import list_all_ports, scan_all_devices
 from src.usb_transport import is_usb_available
@@ -102,13 +103,16 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("DJI RC Emulator — Liftoff / FPV Sim Controller")
+        self.setWindowTitle(f"{__app_name__} v{__version__} — FPV Sim Controller")
         self.setMinimumSize(750, 560)
         self._is_connected = False
 
         # Set window icon
-        import os
-        app_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        import os, sys
+        if getattr(sys, 'frozen', False):
+            app_dir = os.path.dirname(sys.executable)
+        else:
+            app_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         for icon_name in ("icon.ico", "DJI_RC_Icon_12x12.png"):
             icon_path = os.path.join(app_dir, icon_name)
             if os.path.exists(icon_path):
@@ -243,10 +247,15 @@ class MainWindow(QMainWindow):
 
         # -- Header --
         header_layout = QHBoxLayout()
-        title = QLabel("DJI RC Emulator")
+        title = QLabel(f"{__app_name__}  v{__version__}")
         title.setObjectName("headerLabel")
         header_layout.addWidget(title)
         header_layout.addStretch()
+
+        self._about_btn = QPushButton("About")
+        self._about_btn.setObjectName("settingsBtn")
+        self._about_btn.clicked.connect(self._show_about)
+        header_layout.addWidget(self._about_btn)
 
         self._settings_btn = QPushButton("Settings")
         self._settings_btn.setObjectName("settingsBtn")
@@ -641,6 +650,25 @@ class MainWindow(QMainWindow):
     def _on_settings(self):
         if self.on_settings_clicked:
             self.on_settings_clicked()
+
+    def _show_about(self):
+        msg = QMessageBox(self)
+        msg.setWindowTitle(f"About {__app_name__}")
+        msg.setIcon(QMessageBox.Icon.Information)
+        msg.setText(
+            f"<h2>{__app_name__}</h2>"
+            f"<p>Version {__version__}</p>"
+        )
+        msg.setInformativeText(
+            f"{__description__}\n\n"
+            f"Author: {__author__}\n"
+            f"Website: {__website__}\n"
+            f"Support: {__kofi__}\n\n"
+            "Protocol based on DJI_RC-N1_SIMULATOR_FLY_DCL by Ivan Yakymenko.\n"
+            "Virtual gamepad via ViGEm and vgamepad."
+        )
+        msg.setStandardButtons(QMessageBox.StandardButton.Ok)
+        msg.exec()
 
     def closeEvent(self, event):
         """Save window geometry on close."""

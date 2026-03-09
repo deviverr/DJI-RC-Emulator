@@ -13,3 +13,5 @@ venv/
 config.json
 .claude/
 6.0
+test_core.py
+test_usb.py

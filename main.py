@@ -11,6 +11,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 from PySide6.QtGui import QIcon
 from PySide6.QtCore import QTimer
 
+from src.version import __version__, __app_name__
 from src.config_manager import ConfigManager
 from src.rc_connection import RCConnection
 from src.input_processor import InputProcessor
@@ -58,10 +59,14 @@ class Application:
 
     def run(self) -> int:
         app = QApplication(sys.argv)
-        app.setApplicationName("DJI RC Emulator")
+        app.setApplicationName(__app_name__)
+        app.setApplicationVersion(__version__)
 
         # Set application icon
-        app_dir = os.path.dirname(os.path.abspath(__file__))
+        if getattr(sys, 'frozen', False):
+            app_dir = os.path.dirname(sys.executable)
+        else:
+            app_dir = os.path.dirname(os.path.abspath(__file__))
         for icon_name in ("icon.ico", "DJI_RC_Icon_12x12.png"):
             icon_path = os.path.join(app_dir, icon_name)
             if os.path.exists(icon_path):

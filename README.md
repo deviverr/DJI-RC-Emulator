@@ -1,22 +1,26 @@
-# DJI RC Emulator for FPV Simulators
+# DJI RC Emulator
 
-Use your **DJI RC** (RM330, RC-N1, RC-N2, RC231, etc.) as a standard Xbox 360 controller in FPV simulators like **Liftoff**, **DCL - The Game**, **VelociDrone**, or any PC game.
+**v1.0.0** — by [deviver](https://deviver.art)
 
-The RC connects via **USB-C** and this app reads its sticks/buttons over the DJI DUML serial protocol, then emulates a virtual Xbox 360 gamepad via ViGEm.
+Turns your **DJI RC** controller (RM330, RC-N1, RC-N2, RC231, etc.) into a virtual **Xbox 360 gamepad** for FPV simulators like **Liftoff**, **VelociDrone**, **DCL**, or any PC game.
 
-![Screenshot placeholder]
+The RC connects via **USB-C** and this app reads its sticks/buttons over the DJI DUML protocol, then emulates a virtual Xbox 360 gamepad via ViGEm.
+
+[![Support on Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20deviver-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/deviver)
 
 ---
 
 ## Features
 
 - **Live stick visualization** — see both sticks move in real-time
-- **Expo / Rates curves** — adjustable per-axis with visual preview
+- **6-channel support** — 4 sticks + camera wheel + scroll wheel
+- **Button mapping** — C1, C2, Photo, Video, Fn mapped to Xbox buttons
+- **Expo / Rates curves** — adjustable per-axis
 - **Axis remapping** — swap sticks, invert axes, Mode 1/2/3/4 presets
-- **Button mapping** — map camera wheel & RC buttons to Xbox buttons
 - **Deadzones** — configurable per-axis
 - **Auto-reconnect** — handles USB disconnect/reconnect gracefully
-- **High polling rate** — ~200Hz serial polling (vs 10Hz in similar tools)
+- **Low latency** — ~10ms input delay with direct gamepad push
+- **Setup wizard** — first-run tutorial with dependency checks
 - **Persistent config** — all settings saved to `config.json`
 
 ---
@@ -48,54 +52,18 @@ python main.py
 # Or double-click start.bat
 ```
 
+Or use `setup_and_run.bat` for automatic dependency installation on first run.
+
 ---
 
 ## Usage
 
 1. **Connect your DJI RC** to your PC via the USB-C port on the bottom of the controller
 2. **Launch the app** — run `start.bat` or `python main.py`
-3. **Click "Connect"** — the app will auto-detect the RC serial port. If not found, select the port manually from the dropdown (look for "DJI USB VCOM For Protocol")
+3. **Click "Connect"** — the app will auto-detect the RC. If not found, select it from the dropdown
 4. **Move the sticks** — you should see them move in the visualizer
-5. **Verify in Windows** — open `joy.cpl` (Game Controllers) and check the "Xbox 360 Controller" appears and responds
-6. **Open your simulator** (Liftoff, etc.) — configure it to use the Xbox 360 controller
-7. **Adjust settings** — click Settings to tune expo, rates, deadzones, axis mapping, and button mapping
-
-### Settings
-
-- **Expo** — 0.0 (linear) to 1.0 (max exponential curve). Higher expo = more precise center control, aggressive at edges. Good starting value for FPV: 0.2–0.4
-- **Rate** — Output multiplier. 1.0 = full range. Lower = less sensitive overall
-- **Deadzone** — Ignores stick movement near center. Set just high enough to eliminate drift
-- **Axis Mapping** — Use Mode 2 preset (default) for standard DJI/FPV layout. Switch to Mode 1 if you fly Japanese-style
-- **Buttons** — Camera wheel up/down default to Y (restart race) and B (recover drone) for DCL/Liftoff
-
----
-
-## Troubleshooting
-
-### "ViGEm not available" error
-- Install the ViGEm Bus Driver from [github.com/nefarius/ViGEmBus/releases](https://github.com/nefarius/ViGEmBus/releases)
-- Reboot after installing
-- Then run `pip install vgamepad` again
-
-### RC not detected
-- Make sure USB-C is plugged into the **bottom port** of the RC (not the top/side)
-- Check Device Manager → look for "DJI USB VCOM" ports
-- Try manually selecting the COM port in the dropdown
-- If you see multiple DJI ports, choose the one with "For Protocol" in the name
-
-### Sticks not responding
-- Make sure you clicked "Connect" and the status shows green
-- The app sends a simulator-mode command to the RC for fast updates
-- If sticks respond slowly, disconnect and reconnect
-
-### Input lag
-- Default polling is 5ms (~200Hz). You can lower it in Settings → Advanced → Serial poll interval (minimum 1ms)
-- Gamepad update rate defaults to 125Hz, adjustable up to 500Hz
-
-### Liftoff doesn't detect the controller
-- Make sure the app is running and connected (green status)
-- In Liftoff: go to Settings → Controller → select "Xbox 360 Controller"
-- Remap axes in Liftoff if needed
+5. **Open your simulator** (Liftoff, etc.) — configure it to use the Xbox 360 controller
+6. **Adjust settings** — click Settings to tune expo, rates, deadzones, and button mapping
 
 ---
 
@@ -104,41 +72,59 @@ python main.py
 | Controller | Status |
 |-----------|--------|
 | DJI RC (RM330) | ✅ Primary target |
-| DJI RC-N1 | ✅ Tested (reference project) |
-| DJI RC 231 (Mavic 3) | ✅ Tested (reference project) |
+| DJI RC-N1 | ✅ Tested |
+| DJI RC 231 (Mavic 3) | ✅ Tested |
 | DJI RC-N2 | Should work (same protocol) |
 | DJI RC 2 | Should work (same protocol) |
-| DJI RC Pro | Untested — may need different cmd bytes |
+| DJI RC Pro | Untested |
 
 ---
 
-## Project Structure
+## Building Executable
 
+```bash
+pip install pyinstaller
+pyinstaller DJI_RC_Emulator.spec --noconfirm
+# Or run build.bat
 ```
-DJI_RC_Liftoff_emu/
-├── main.py                    # Entry point
-├── requirements.txt           # Python dependencies
-├── config.json                # Generated on first run
-├── start.bat                  # Quick launcher
-├── README.md                  # This file
-└── src/
-    ├── duml.py                # DUML protocol (CRC, packets)
-    ├── rc_connection.py       # Serial port management
-    ├── input_processor.py     # Expo, rates, deadzones, remapping
-    ├── gamepad.py             # Virtual Xbox 360 controller
-    ├── config_manager.py      # JSON config persistence
-    └── gui/
-        ├── main_window.py     # Main application window
-        ├── stick_widget.py    # Stick position visualizer
-        └── settings_dialog.py # Settings UI
-```
+
+Output: `dist/DJI RC Emulator/DJI RC Emulator.exe`
+
+---
+
+## Troubleshooting
+
+### "ViGEm not available" error
+- Install ViGEm Bus Driver from [github.com/nefarius/ViGEmBus/releases](https://github.com/nefarius/ViGEmBus/releases)
+- Reboot after installing
+
+### RC not detected
+- USB-C must be in the **bottom port** (not top/side)
+- Check Device Manager for "DJI USB VCOM" ports
+- For RM330/RC2: install WinUSB driver via Zadig when prompted
+
+### Sticks not responding
+- Click "Connect" and check for green status
+- Disconnect and reconnect if sticks respond slowly
 
 ---
 
 ## Credits
 
-- Protocol reverse engineering based on [DJI_RC-N1_SIMULATOR_FLY_DCL](https://github.com/) by Ivan Yakymenko
+- Protocol based on [DJI_RC-N1_SIMULATOR_FLY_DCL](https://github.com/) by Ivan Yakymenko
 - Virtual gamepad via [ViGEm](https://vigem.org/) and [vgamepad](https://pypi.org/project/vgamepad/)
+
+---
+
+## Support
+
+If you find this useful, consider supporting development:
+
+☕ **[Ko-fi — deviver](https://ko-fi.com/deviver)**
+
+🌐 **[deviver.art](https://deviver.art)**
+
+---
 
 ## License
 

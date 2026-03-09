@@ -13,9 +13,17 @@ from PySide6.QtWidgets import (
     QStackedWidget, QWidget, QFrame, QSizePolicy, QMessageBox,
 )
 
+from src.version import __version__, __app_name__, __author__, __website__, __kofi__, __description__
+
 # Resolved at import time
-_ICON_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "icon.ico")
-_PNG_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "DJI_RC_Icon_12x12.png")
+def _get_icon_dir():
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+_ICON_DIR = _get_icon_dir()
+_ICON_PATH = os.path.join(_ICON_DIR, "icon.ico")
+_PNG_PATH = os.path.join(_ICON_DIR, "DJI_RC_Icon_12x12.png")
 
 
 def _icon_pixmap(size: int = 64) -> QPixmap | None:
@@ -55,7 +63,7 @@ class SetupWizard(QDialog):
 
     def __init__(self, missing: dict, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("DJI RC Emulator — Setup")
+        self.setWindowTitle(f"{__app_name__} v{__version__} — Setup")
         self.setMinimumSize(560, 480)
         self.setStyleSheet("""
             QDialog { background-color: #1a1a20; }
@@ -144,7 +152,7 @@ class SetupWizard(QDialog):
             icon_lbl = QLabel()
             icon_lbl.setPixmap(px)
             header.addWidget(icon_lbl)
-        title = QLabel("Welcome to DJI RC Emulator")
+        title = QLabel(f"Welcome to {__app_name__} v{__version__}")
         title.setStyleSheet("font-size: 22px; font-weight: bold; color: #e0e0e8;")
         header.addWidget(title)
         header.addStretch()
@@ -152,8 +160,7 @@ class SetupWizard(QDialog):
 
         layout.addWidget(_card(
             "🎮  What does this do?",
-            "Turns your DJI RC controller into an Xbox 360 gamepad for FPV simulators "
-            "like Liftoff, VelociDrone, DCL, and any PC game.\n\n"
+            f"{__description__}\n\n"
             "Your RC connects via USB-C and this app reads its sticks and buttons, "
             "then emulates a virtual Xbox 360 controller.",
             "#44aaff"
@@ -166,6 +173,13 @@ class SetupWizard(QDialog):
             "3. Click Connect — sticks should move on screen\n"
             "4. Open your simulator and select Xbox 360 controller",
             "#ffaa44"
+        ))
+
+        layout.addWidget(_card(
+            f"👤  Made by {__author__}",
+            f"Website: {__website__}\n"
+            f"Support development: {__kofi__}",
+            "#cc66ff"
         ))
 
         layout.addStretch()
@@ -327,40 +341,54 @@ def check_missing_deps() -> dict:
     """Check for missing dependencies. Returns dict of what's missing."""
     missing = {}
 
-    # Check Python packages
-    missing_pkgs = []
-    for pkg, import_name in [
-        ("PySide6", "PySide6"),
-        ("vgamepad", "vgamepad"),
-        ("pyserial", "serial"),
-        ("pyusb", "usb"),
-        ("libusb", "libusb"),
-    ]:
-        try:
-            __import__(import_name)
-        except ImportError:
-            missing_pkgs.append(pkg)
-    if missing_pkgs:
-        missing['packages'] = missing_pkgs
+    # In frozen builds, all packages are bundled — skip package check
+    if not getattr(sys, 'frozen', False):
+        missing_pkgs = []
+        for pkg, import_name in [
+            ("PySide6", "PySide6"),
+            ("vgamepad", "vgamepad"),
+            ("pyserial", "serial"),
+            ("pyusb", "usb"),
+            ("libusb", "libusb"),
+        ]:
+            try:
+                __import__(import_name)
+            except ImportError:
+                missing_pkgs.append(pkg)
+        if missing_pkgs:
+            missing['packages'] = missing_pkgs
 
-    # Check ViGEm
+    # Check ViGEm — use ctypes probe to avoid triggering vgamepad DLL load issues
     try:
-        import vgamepad
-        vgamepad.VX360Gamepad()
-    except Exception:
-        missing['vigem'] = True
+        import ctypes
+        ctypes.WinDLL("ViGEmClient.dll")
+    except OSError:
+        # DLL not in PATH, try checking via vgamepad's known path
+        try:
+            import vgamepad
+            gp = vgamepad.VX360Gamepad()
+            del gp
+        except Exception:
+            missing['vigem'] = True
 
     return missing
 
 
+def _app_dir() -> str:
+    """Return the application root directory (handles frozen and dev)."""
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
 def should_show_wizard() -> bool:
-    """Check if this is the first run (no config.json yet or flag file)."""
-    flag = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".setup_done")
+    """Check if this is the first run (no .setup_done flag file)."""
+    flag = os.path.join(_app_dir(), ".setup_done")
     return not os.path.exists(flag)
 
 
 def mark_setup_done():
     """Mark setup as complete so wizard doesn't show again."""
-    flag = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".setup_done")
+    flag = os.path.join(_app_dir(), ".setup_done")
     with open(flag, 'w') as f:
         f.write("1")
