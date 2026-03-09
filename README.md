@@ -1,12 +1,32 @@
-# DJI RC Emulator
+<p align="center">
+  <img src="assets/banner.png" alt="DJI RC Emulator Banner" width="100%">
+</p>
 
-**v1.1** — by [deviver](https://deviver.art)
+<h1 align="center">
+  <img src="assets/icon.png" alt="Icon" width="32" height="32">
+  DJI RC Emulator
+</h1>
 
-Turns your **DJI RC** controller (RM330, RC-N1, RC-N2, RC231, etc.) into a virtual **Xbox 360 gamepad** for FPV simulators like **Liftoff**, **VelociDrone**, **DCL**, or any PC game.
+<p align="center">
+  <strong>v1.1</strong> — by <a href="https://deviver.art">deviver</a><br>
+  Turns your DJI RC controller into a virtual Xbox 360 gamepad for FPV simulators
+</p>
 
-The RC connects via **USB-C** and this app reads its sticks/buttons over the DJI DUML protocol, then emulates a virtual Xbox 360 gamepad via ViGEm.
+<p align="center">
+  <a href="https://ko-fi.com/deviver"><img src="https://img.shields.io/badge/Ko--fi-Support%20deviver-ff5e5b?logo=ko-fi&logoColor=white" alt="Support on Ko-fi"></a>
+  <a href="https://github.com/deviverr/DJI-RC-Emulator/releases"><img src="https://img.shields.io/github/v/release/deviverr/DJI-RC-Emulator?color=44aaff&label=Download" alt="Latest Release"></a>
+  <img src="https://img.shields.io/badge/platform-Windows%2010%2F11-0078d4?logo=windows" alt="Windows">
+</p>
 
-[![Support on Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20deviver-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/deviver)
+---
+
+Use your **DJI RC** (RM330, RC-N1, RC-N2, RC231, etc.) as a virtual **Xbox 360 controller** in **Liftoff**, **VelociDrone**, **DCL**, or any PC game.
+
+The RC connects via **USB-C** and the app reads sticks/buttons over the DJI DUML protocol, then emulates a gamepad via ViGEm.
+
+<p align="center">
+  <img src="assets/screenshot.png" alt="DJI RC Emulator Screenshot" width="680">
+</p>
 
 ---
 
@@ -14,12 +34,12 @@ The RC connects via **USB-C** and this app reads its sticks/buttons over the DJI
 
 - **Live stick visualization** — see both sticks move in real-time
 - **6-channel support** — 4 sticks + camera wheel + scroll wheel
-- **Button mapping** — C1, C2, Photo, Video, Fn mapped to Xbox buttons
+- **Button mapping** — C1, C2, Photo, Video, Fn, Scroll mapped to Xbox buttons
 - **Expo / Rates curves** — adjustable per-axis
 - **Axis remapping** — swap sticks, invert axes, Mode 1/2/3/4 presets
 - **Deadzones** — configurable per-axis
 - **Auto-reconnect** — handles USB disconnect/reconnect gracefully
-- **Low latency** — ~10ms input delay with direct gamepad push
+- **Low latency** — direct gamepad push from RC callback, no threading overhead
 - **Setup wizard** — first-run tutorial with dependency checks
 - **Persistent config** — all settings saved to `config.json`
 
