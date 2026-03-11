@@ -91,9 +91,9 @@ Or use `setup_and_run.bat` for automatic dependency installation on first run.
 
 | Controller | Status |
 |-----------|--------|
-| DJI RC (RM330) | ✅ Primary target |
-| DJI RC-N1 | ✅ Tested |
-| DJI RC 231 (Mavic 3) | ✅ Tested |
+| DJI RC (RM330) | ✅ Tested |
+| DJI RC-N1 | Should work (same protocol) |
+| DJI RC 231 (Mavic 3) | Should work (same protocol) |
 | DJI RC-N2 | Should work (same protocol) |
 | DJI RC 2 | Should work (same protocol) |
 | DJI RC Pro | Untested |
